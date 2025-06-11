@@ -4,6 +4,8 @@ from jose import JWTError, jwt
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 import secrets
+import os
+import uvicorn
 from sqlalchemy.orm import Session
 
 from models import (
@@ -185,6 +187,11 @@ async def get_conversation_messages(
     other_user_id: str,
     current_user: DBUser = Depends(get_current_user),
     db: Session = Depends(get_db),
+    # NUEVO: Parámetro de query para el timestamp
+    after_timestamp: Optional[datetime] = Query(
+        None,
+        description="Obtener mensajes enviados después de este timestamp (ISO 8601)",
+    ),
 ):
     other_user = get_user_by_id(db, other_user_id)
     if not other_user:
@@ -193,5 +200,9 @@ async def get_conversation_messages(
             detail="El usuario de la conversación no existe",
         )
 
-    messages = get_messages_for_conversation(db, current_user.id, other_user_id)
+    # Llama a la función de la base de datos con el nuevo parámetro
+    # Si after_timestamp está presente, la función de base de datos debería filtrar por ello
+    messages = get_messages_for_conversation(
+        db, current_user.id, other_user_id, after_timestamp=after_timestamp
+    )
     return [MessageResponse.from_orm(msg) for msg in messages]

@@ -119,15 +119,20 @@ def add_message(
 
 
 def get_messages_for_conversation(
-    db: Session, user1_id: str, user2_id: str
+    db: Session,
+    user1_id: str,
+    user2_id: str,
+    after_timestamp: Optional[datetime] = None,
 ) -> List[DBMessage]:
-    messages = (
-        db.query(DBMessage)
-        .filter(
-            ((DBMessage.sender_id == user1_id) & (DBMessage.receiver_id == user2_id))
-            | ((DBMessage.sender_id == user2_id) & (DBMessage.receiver_id == user1_id))
-        )
-        .order_by(DBMessage.timestamp)
-        .all()
+    query = db.query(DBMessage).filter(
+        ((DBMessage.sender_id == user1_id) & (DBMessage.receiver_id == user2_id))
+        | ((DBMessage.sender_id == user2_id) & (DBMessage.receiver_id == user1_id))
     )
+
+    if after_timestamp:
+        # Añadir la condición de filtro por timestamp
+        # Asegúrate de que el timestamp en la DB sea timezone-aware si tus datetimes de Python lo son.
+        query = query.filter(DBMessage.timestamp > after_timestamp)
+
+    messages = query.order_by(DBMessage.timestamp).all()
     return messages
