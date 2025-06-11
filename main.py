@@ -4,8 +4,6 @@ from jose import JWTError, jwt
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 import secrets
-import os
-import uvicorn
 from sqlalchemy.orm import Session
 
 from models import (
@@ -16,6 +14,10 @@ from models import (
     MessageCreate,
     MessageResponse,
     DBUser,
+    CustomEncryptRequest,
+    CustomEncryptResponse,
+    CustomDecryptRequest,
+    CustomDecryptResponse,  # NUEVOS MODELOS
 )
 from database import (
     get_password_hash,
@@ -30,6 +32,10 @@ from database import (
     get_db,
     create_all_tables,
 )
+from encryption_utils import (
+    custom_encrypt,
+    custom_decrypt,
+)  # NUEVO: Importar funciones de cifrado custom
 
 # --- Configuración de FastAPI ---
 app = FastAPI(
@@ -40,9 +46,7 @@ app = FastAPI(
 )
 
 # --- Configuración de JWT (JSON Web Token) ---
-SECRET_KEY = secrets.token_urlsafe(
-    32
-)  # ¡¡¡IMPORTANTE!!! Debe ser una variable de entorno en producción
+SECRET_KEY = secrets.token_urlsafe(32)
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
@@ -187,7 +191,6 @@ async def get_conversation_messages(
     other_user_id: str,
     current_user: DBUser = Depends(get_current_user),
     db: Session = Depends(get_db),
-    # NUEVO: Parámetro de query para el timestamp
     after_timestamp: Optional[datetime] = Query(
         None,
         description="Obtener mensajes enviados después de este timestamp (ISO 8601)",
@@ -200,9 +203,46 @@ async def get_conversation_messages(
             detail="El usuario de la conversación no existe",
         )
 
-    # Llama a la función de la base de datos con el nuevo parámetro
-    # Si after_timestamp está presente, la función de base de datos debería filtrar por ello
     messages = get_messages_for_conversation(
         db, current_user.id, other_user_id, after_timestamp=after_timestamp
     )
     return [MessageResponse.from_orm(msg) for msg in messages]
+
+
+# --- NUEVOS Endpoints de Cifrado/Descifrado Custom ---
+
+
+@app.post(
+    "/encrypt_custom",
+    response_model=CustomEncryptResponse,
+    summary="Cifrar un mensaje con la lógica custom",
+)
+async def encrypt_message_custom(request: CustomEncryptRequest):
+    try:
+        encrypted_text_base64 = custom_encrypt(request.message, request.key)
+        return CustomEncryptResponse(encrypted_message_base64=encrypted_text_base64)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno al cifrar: {e}",
+        )
+
+
+@app.post(
+    "/decrypt_custom",
+    response_model=CustomDecryptResponse,
+    summary="Descifrar un mensaje con la lógica custom",
+)
+async def decrypt_message_custom(request: CustomDecryptRequest):
+    try:
+        decrypted_text = custom_decrypt(request.encrypted_message_base64, request.key)
+        return CustomDecryptResponse(decrypted_message=decrypted_text)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno al descifrar: {e}",
+        )

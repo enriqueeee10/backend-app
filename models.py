@@ -1,23 +1,13 @@
 from pydantic import BaseModel, EmailStr
 from typing import List, Optional
 from datetime import datetime
-from sqlalchemy import (
-    create_engine,
-    Column,
-    String,
-    Boolean,
-    DateTime,
-    Text,
-    ForeignKey,
-)
-from sqlalchemy.orm import sessionmaker, declarative_base, relationship
-from sqlalchemy.sql import func  # Importar func para funciones SQL como now()
+from sqlalchemy import Column, String, Boolean, DateTime, Text, ForeignKey
+from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.sql import func
 
-# --- Configuración de SQLAlchemy ---
 Base = declarative_base()
 
 
-# --- Modelos de Base de Datos (SQLAlchemy) ---
 class DBUser(Base):
     __tablename__ = "users"
     id = Column(String, primary_key=True, index=True)
@@ -58,7 +48,6 @@ class DBMessage(Base):
         return f"<DBMessage(id='{self.id}', sender='{self.sender_id}', receiver='{self.receiver_id}', timestamp='{self.timestamp}')>"
 
 
-# --- Modelos Pydantic (para la API) ---
 class UserBase(BaseModel):
     email: EmailStr
     name: str
@@ -112,3 +101,22 @@ class MessageResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# NUEVOS MODELOS para el cifrado/descifrado custom
+class CustomEncryptRequest(BaseModel):
+    message: str
+    key: str
+
+
+class CustomEncryptResponse(BaseModel):
+    encrypted_message_base64: str
+
+
+class CustomDecryptRequest(BaseModel):
+    encrypted_message_base64: str
+    key: str
+
+
+class CustomDecryptResponse(BaseModel):
+    decrypted_message: str

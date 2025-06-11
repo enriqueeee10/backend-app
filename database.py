@@ -1,15 +1,15 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, and_
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.exc import OperationalError
 from typing import Generator, Optional, List
 from datetime import datetime
 from passlib.context import CryptContext
 import secrets
+import base64
 
 from models import Base, DBUser, DBMessage
 
 # --- Configuración de la Base de Datos PostgreSQL ---
-# ¡¡¡IMPORTANTE!!! Reemplaza esta URL con la URL de tu base de datos de Render.
 DATABASE_URL = "postgresql://hertz:88aJ7UYnBfybSR0BeY2mvuKrr8vODiXP@dpg-d14q5iili9vc73erbtfg-a.oregon-postgres.render.com/cifrado"
 
 engine = create_engine(DATABASE_URL)
@@ -49,7 +49,7 @@ def get_db() -> Generator[Session, None, None]:
         db.close()
 
 
-# --- Funciones CRUD para Usuarios ---
+# --- Funciones CRUD para Usuarios (sin cambios) ---
 def create_user(db: Session, email: str, name: str, password: str) -> DBUser:
     hashed_password = get_password_hash(password)
     user_id = secrets.token_urlsafe(16)
@@ -91,11 +91,6 @@ def get_all_users(db: Session) -> List[DBUser]:
 
 
 # --- Funciones CRUD para Mensajes ---
-def get_conversation_id(user1_id: str, user2_id: str) -> str:
-    sorted_ids = sorted([user1_id, user2_id])
-    return f"{sorted_ids[0]}_{sorted_ids[1]}"
-
-
 def add_message(
     db: Session,
     sender_id: str,
@@ -130,8 +125,6 @@ def get_messages_for_conversation(
     )
 
     if after_timestamp:
-        # Añadir la condición de filtro por timestamp
-        # Asegúrate de que el timestamp en la DB sea timezone-aware si tus datetimes de Python lo son.
         query = query.filter(DBMessage.timestamp > after_timestamp)
 
     messages = query.order_by(DBMessage.timestamp).all()
