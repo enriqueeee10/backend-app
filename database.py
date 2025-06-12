@@ -104,7 +104,7 @@ def add_message(
         sender_id=sender_id,
         receiver_id=receiver_id,
         encrypted_content=encrypted_content,
-        encryption_key=encryption_key,
+        encryption_key=encryption_key,  # Esto ya viene cifrado de Flutter
         timestamp=datetime.now(),
     )
     db.add(db_message)

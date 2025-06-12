@@ -17,7 +17,11 @@ from models import (
     CustomEncryptRequest,
     CustomEncryptResponse,
     CustomDecryptRequest,
-    CustomDecryptResponse,  # NUEVOS MODELOS
+    CustomDecryptResponse,
+    KeyEncryptRequest,
+    KeyEncryptResponse,
+    KeyDecryptRequest,
+    KeyDecryptResponse,  # NUEVOS MODELOS
 )
 from database import (
     get_password_hash,
@@ -33,9 +37,11 @@ from database import (
     create_all_tables,
 )
 from encryption_utils import (
-    custom_encrypt,
-    custom_decrypt,
-)  # NUEVO: Importar funciones de cifrado custom
+    custom_encrypt_message,
+    custom_decrypt_message,
+    cifrar_clave_custom,  # NUEVO
+    descifrar_clave_custom,  # NUEVO
+)
 
 # --- Configuración de FastAPI ---
 app = FastAPI(
@@ -154,7 +160,7 @@ async def get_users(
     ]
 
 
-# --- Endpoints de Chat ---
+# --- Endpoints de Chat (sin cambios funcionales para la DB) ---
 
 
 @app.post(
@@ -172,12 +178,13 @@ async def send_message(
             detail="El usuario receptor no existe",
         )
 
+    # El mensaje y la clave ya vienen cifrados desde el cliente (Flutter)
     db_message = add_message(
         db,
         sender_id=current_user.id,
         receiver_id=message.receiver_id,
         encrypted_content=message.encrypted_content,
-        encryption_key=message.encryption_key,
+        encryption_key=message.encryption_key,  # Esta es la clave DE MENSAJE, AHORA CIFRADA
     )
     return MessageResponse.from_orm(db_message)
 
@@ -206,10 +213,11 @@ async def get_conversation_messages(
     messages = get_messages_for_conversation(
         db, current_user.id, other_user_id, after_timestamp=after_timestamp
     )
+    # Los mensajes se devuelven tal cual están en la DB (cifrados), el cliente los descifra
     return [MessageResponse.from_orm(msg) for msg in messages]
 
 
-# --- NUEVOS Endpoints de Cifrado/Descifrado Custom ---
+# --- Endpoints de Cifrado/Descifrado Custom de MENSAJES ---
 
 
 @app.post(
@@ -217,16 +225,16 @@ async def get_conversation_messages(
     response_model=CustomEncryptResponse,
     summary="Cifrar un mensaje con la lógica custom",
 )
-async def encrypt_message_custom(request: CustomEncryptRequest):
+async def encrypt_message_custom_api(request: CustomEncryptRequest):
     try:
-        encrypted_text_base64 = custom_encrypt(request.message, request.key)
+        encrypted_text_base64 = custom_encrypt_message(request.message, request.key)
         return CustomEncryptResponse(encrypted_message_base64=encrypted_text_base64)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error interno al cifrar: {e}",
+            detail=f"Error interno al cifrar mensaje: {e}",
         )
 
 
@@ -235,14 +243,55 @@ async def encrypt_message_custom(request: CustomEncryptRequest):
     response_model=CustomDecryptResponse,
     summary="Descifrar un mensaje con la lógica custom",
 )
-async def decrypt_message_custom(request: CustomDecryptRequest):
+async def decrypt_message_custom_api(request: CustomDecryptRequest):
     try:
-        decrypted_text = custom_decrypt(request.encrypted_message_base64, request.key)
+        decrypted_text = custom_decrypt_message(
+            request.encrypted_message_base64, request.key
+        )
         return CustomDecryptResponse(decrypted_message=decrypted_text)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error interno al descifrar: {e}",
+            detail=f"Error interno al descifrar mensaje: {e}",
+        )
+
+
+# --- NUEVOS Endpoints de Cifrado/Descifrado Custom de CLAVES ---
+
+
+@app.post(
+    "/encrypt_key",
+    response_model=KeyEncryptResponse,
+    summary="Cifrar una clave con la lógica custom",
+)
+async def encrypt_key_custom_api(request: KeyEncryptRequest):
+    try:
+        encrypted_key_base64 = cifrar_clave_custom(request.plain_key)
+        return KeyEncryptResponse(encrypted_key_base64=encrypted_key_base64)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno al cifrar clave: {e}",
+        )
+
+
+@app.post(
+    "/decrypt_key",
+    response_model=KeyDecryptResponse,
+    summary="Descifrar una clave con la lógica custom",
+)
+async def decrypt_key_custom_api(request: KeyDecryptRequest):
+    try:
+        decrypted_key = descifrar_clave_custom(request.encrypted_key_base64)
+        return KeyDecryptResponse(decrypted_key=decrypted_key)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno al descifrar clave: {e}",
         )

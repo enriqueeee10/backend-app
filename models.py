@@ -34,7 +34,9 @@ class DBMessage(Base):
     sender_id = Column(String, ForeignKey("users.id"), nullable=False)
     receiver_id = Column(String, ForeignKey("users.id"), nullable=False)
     encrypted_content = Column(Text, nullable=False)
-    encryption_key = Column(String, nullable=False)
+    encryption_key = Column(
+        String, nullable=False
+    )  # Ahora almacenará la clave CIFRADA (de mensaje)
     timestamp = Column(DateTime, default=func.now())
 
     sender = relationship(
@@ -88,7 +90,7 @@ class TokenData(BaseModel):
 class MessageCreate(BaseModel):
     receiver_id: str
     encrypted_content: str
-    encryption_key: str
+    encryption_key: str  # Este campo ahora contendrá la clave de mensaje CIFRADA
 
 
 class MessageResponse(BaseModel):
@@ -96,14 +98,14 @@ class MessageResponse(BaseModel):
     sender_id: str
     receiver_id: str
     encrypted_content: str
-    encryption_key: str
+    encryption_key: str  # Este campo ahora contendrá la clave de mensaje CIFRADA
     timestamp: datetime
 
     class Config:
         from_attributes = True
 
 
-# NUEVOS MODELOS para el cifrado/descifrado custom
+# Modelos para el cifrado/descifrado custom de MENSAJES
 class CustomEncryptRequest(BaseModel):
     message: str
     key: str
@@ -120,3 +122,20 @@ class CustomDecryptRequest(BaseModel):
 
 class CustomDecryptResponse(BaseModel):
     decrypted_message: str
+
+
+# NUEVOS MODELOS para el cifrado/descifrado custom de CLAVES
+class KeyEncryptRequest(BaseModel):
+    plain_key: str  # La clave de texto plano a cifrar
+
+
+class KeyEncryptResponse(BaseModel):
+    encrypted_key_base64: str
+
+
+class KeyDecryptRequest(BaseModel):
+    encrypted_key_base64: str  # La clave cifrada en Base64 a descifrar
+
+
+class KeyDecryptResponse(BaseModel):
+    decrypted_key: str
